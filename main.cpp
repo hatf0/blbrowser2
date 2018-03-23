@@ -48,17 +48,17 @@ static blmodule* us;
 
 CefRefPtr<CefBrowser> brw;
 
-std::thread blb;
+std::thread blb; //The main loop thread
 
 typedef int(*swapBuffersFn)();
-static int texID = 0;
+static int texID = 0; //Texture ID that we bind to with OpenGL
 
-static bool dirty = false;
+static bool dirty = false; //Do we need to render the texture?
 
-static int global_ww = 1024;
-static int global_hh = 768;
+static int global_ww = 1024; //Width
+static int global_hh = 768; //Height, both are used in swapBuffers to determine what should be copied over.
 
-MologieDetours::Detour<swapBuffersFn>* swapBuffers_detour;
+MologieDetours::Detour<swapBuffersFn>* swapBuffers_detour; //The detour so we can draw our stuff before Torque can.
 
 GLuint* texBuffer;
 
@@ -67,36 +67,22 @@ int __fastcall swapBuffers_hook() {
 	if (texID != 0 && dirty) {
 		BL_glBindTexture(GL_TEXTURE_2D, texID);
 		BL_glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, global_ww, global_hh, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texBuffer);
-		/*if (!BL_glGenerateMipmap) {
-			BL_glTexSubImage2D(GL_TEXTURE_2D, 1, 0, 0, 512, 512, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texBuffer_1);
-			BL_glTexSubImage2D(GL_TEXTURE_2D, 2, 0, 0, 256, 256, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texBuffer_2);
-			BL_glTexSubImage2D(GL_TEXTURE_2D, 3, 0, 0, 128, 128, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texBuffer_3);
-			BL_glTexSubImage2D(GL_TEXTURE_2D, 4, 0, 0, 64, 64, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texBuffer_4);
-			BL_glTexSubImage2D(GL_TEXTURE_2D, 5, 0, 0, 32, 32, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texBuffer_5);
-			BL_glTexSubImage2D(GL_TEXTURE_2D, 6, 0, 0, 16, 16, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texBuffer_6);
-		}
-		else {
-			BL_glGenerateMipmap(GL_TEXTURE_2D);*/
-			BL_glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
-			BL_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-			BL_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-			BL_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-			BL_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-		//}
+		BL_glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE); 
+		/*
+		* Yes, this will result in some issues with VERY old graphics cards.
+		* But, if you're using a GPU that doesn't support generating mipmaps, should you really be using this?
+		* Think about it. You're using the modern-day equivalent of Chromium, on a potato graphics card. It shouldn't be MY job to add in backwards compatibility for your potato.
+		* It should be your responsibility to get a graphics card that has been released in the past few millenia.
+		*/
+		BL_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		BL_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		BL_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		BL_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 		dirty = false;
 	}
 		int ret = swapBuffers_detour->GetOriginalFunction()();
 	return ret;
 }
-
-//Stolen blatantly from BLBrowser lol
-//char *texBuffer_1 = new char[512 * 512 * 4];
-//char *texBuffer_2 = new char[256 * 256 * 4];
-//char *texBuffer_3 = new char[128 * 128 * 4];
-//char *texBuffer_4 = new char[64 * 64 * 4];
-//char *texBuffer_5 = new char[32 * 32 * 4];
-//char *texBuffer_6 = new char[16 * 16 * 4];
-
 
 class BLBrowser : public CefApp {
 public:
@@ -403,7 +389,7 @@ void runml(bool* dowecontinue) { //Run the main loop here.
 	settings.command_line_args_disabled = true;
 	settings.no_sandbox = true;
 	CefString(&settings.browser_subprocess_path).FromASCII("blbrowser_subproc.exe");
-	CefString(&settings.user_agent).FromASCII("Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36 GMod/13 (CEF, Blockland)");
+	CefString(&settings.user_agent).FromASCII("Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chromium/65.0.3325.146 Safari/537.36 Blockland/r1986 (Torque Game Engine/1.3)");
 	settings.windowless_rendering_enabled = true;
 	if (!CefInitialize(args, settings, new BLBrowser(), nullptr))
 		bloader_printf_error("Failed to init CEF.");
