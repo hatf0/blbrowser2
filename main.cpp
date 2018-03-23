@@ -55,8 +55,8 @@ static int texID = 0;
 
 static bool dirty = false;
 
-static int ww = 1024;
-static int hh = 768;
+static int global_ww = 1024;
+static int global_hh = 768;
 
 MologieDetours::Detour<swapBuffersFn>* swapBuffers_detour;
 
@@ -66,7 +66,7 @@ int __fastcall swapBuffers_hook() {
 
 	if (texID != 0 && dirty) {
 		BL_glBindTexture(GL_TEXTURE_2D, texID);
-		BL_glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, ww, hh, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texBuffer);
+		BL_glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, global_ww, global_hh, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texBuffer);
 		/*if (!BL_glGenerateMipmap) {
 			BL_glTexSubImage2D(GL_TEXTURE_2D, 1, 0, 0, 512, 512, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texBuffer_1);
 			BL_glTexSubImage2D(GL_TEXTURE_2D, 2, 0, 0, 256, 256, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texBuffer_2);
@@ -117,7 +117,7 @@ public:
 			bloader_printf_error("Could not find genBuffers!");
 			if (!BL_glGenBuffersARB) {
 				bloader_printf_error("Could not find BL_genBuffersArb!");
-				texBuffer = (GLuint*)malloc(width * height * 4);
+				texBuffer = (GLuint*)malloc(2048 * 2048 * 4);
 			}
 			else {
 				BL_glGenBuffersARB(1, &*texBuffer);
@@ -205,6 +205,21 @@ public:
 
 	}
 
+	void UpdateResolution(int hh, int ww) {
+
+		if (hh * ww * 4 > 16777216) {
+			bloader_printf_error("That's too damn big.");
+			return;
+		}
+		
+		memset(texBuffer, 0, 2048 * 2048 * 4);
+		height = hh;
+		width = ww;
+		global_ww = width;
+		global_hh = height;
+
+	}
+
 private:
 	IMPLEMENT_REFCOUNTING(BLBrowserDrawer);
 	int height, width;
@@ -213,14 +228,16 @@ private:
 bool* run = new bool(true);
 
 void id(blinfo* info) {
-	info->description = (char*)"fuck";
-	info->name = (char*)"BLBrowser";
+	const char* description = "Author: hatf0/Metario/w[hat]#0518";
+	const char* name = "BLBrowser^2";
+	strcpy_s(info->description, sizeof(description), description);
+	strcpy_s(info->name, sizeof(name), name);
 	info->version = 1;
 }
 
 bool bindTexID() {
 	TextureObject* texture;
-	const char* string = "Add-Ons/Print_Screen_Cinema/prints/Fuck.png";
+	const char* string = "Add-Ons/Print_Screen_Cinema/prints/Cinema.png";
 	texID = 0;
 	for (texture = (TextureObject*)0x7868E0; texture; texture = texture->next) {
 		if (texture->texFileName != NULL && _stricmp(texture->texFileName, string) == 0) {
@@ -332,21 +349,48 @@ private:
 };
 
 
-bool fuckass(void* this_, int argc, const char* argv[]) { //todo, make this function name better
+bool bindToTexture(void* this_, int argc, const char* argv[]) {
+	return bindTexID();
+}
+
+void visitURL(void* this_, int argc, const char* argv[]) {
 	if (brw.get() != nullptr) {
 		brw->GetMainFrame()->LoadURL(CefString(argv[1]));
 	}
 	else {
-		bloader_printf("brw was null");
+		bloader_printf_error("brw was a nullptr");
 	}
-
-	if (!BL_glGenerateMipmap) {
-		bloader_printf("unoptimized mipmap grabbing");
-	}
-	return bindTexID();
 }
 
-void runml(bool* dowecontinue) {
+void executeJS(void* this_, int argc, const char* argv[]) {
+	if (brw.get() != nullptr) {
+		brw->GetMainFrame()->ExecuteJavaScript(CefString(argv[1]), CefString(""), 1);
+	}
+	else {
+		bloader_printf_error("brw was a nullptr");
+	}
+}
+
+
+CefRefPtr<BLBrowserDrawer> renderHandler;
+
+void resizeWindow(void* this_, int argc, const char* argv[]) {
+	int width = atoi(argv[1]);
+	int height = atoi(argv[2]);
+
+	renderHandler->UpdateResolution(width, height);
+
+	brw->GetHost()->WasResized();
+}
+
+void mouseMove(void* this_, int argc, const char* argv[]) {
+	CefMouseEvent* evt = new CefMouseEvent();
+	evt->x = atoi(argv[1]);
+	evt->y = atoi(argv[2]);
+	brw->GetHost()->SendMouseMoveEvent(*evt, false);
+}
+
+void runml(bool* dowecontinue) { //Run the main loop here.
 	CefMainArgs args;
 
 	CefSettings settings;
@@ -359,7 +403,7 @@ void runml(bool* dowecontinue) {
 	if (!CefInitialize(args, settings, new BLBrowser(), nullptr))
 		bloader_printf_error("Failed to init CEF.");
 	else {
-		CefRefPtr<BLBrowserDrawer> renderHandler = new BLBrowserDrawer(ww, hh);
+		renderHandler = new BLBrowserDrawer(global_ww, global_hh);
 		CefBrowserSettings browser_settings;
 		CefWindowInfo window_info;
 		CefRefPtr<BrowserClient> browserClient;
@@ -385,11 +429,17 @@ void runml(bool* dowecontinue) {
 extern "C" {
 	int blibrary_initialize(blmodule* module) {
 		us = module;
-		bloader_printf("BLBrowser ready for action!");
-		bloader_consolefunction_bool(us, "", "bindTex", fuckass, "()", 2, 2);
+		bloader_consolefunction_bool(us, "", "CEF_bindTex", bindToTexture, "() - Bind to the texture representing a Cinema screen.", 1, 1);
+		bloader_consolefunction_void(us, "", "CEF_goToURL", visitURL, "(string url) - Visit a URL", 2, 2);
+		bloader_consolefunction_void(us, "", "CEF_executeJS", executeJS, "(string code) - Execute JavaScript on the current window.", 2, 2);
+		bloader_consolefunction_void(us, "", "CEF_resizeWindow", resizeWindow, "(int width, int height) - Resize the CEF window, reallocating the texture buffer.", 3, 3);
+
+
 		initGL();
 		swapBuffers_detour = new MologieDetours::Detour<swapBuffersFn>((swapBuffersFn)0x4237D0, (swapBuffersFn)swapBuffers_hook);
 		blb = std::thread(runml, run);
+
+		bloader_printf("BLBrowser^2 ready for action!");
 		return BL_OK;
 	}
 

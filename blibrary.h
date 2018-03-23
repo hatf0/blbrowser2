@@ -16,9 +16,9 @@ extern "C" {
 // Information about module
 typedef struct BLinfo
 {
-	char* name;
+	char name[256];
 	int version;
-	char* description;
+	char description[4096];
 } blinfo;
 
 BLOADER_IMPORT int blibrary_initialize(blmodule * module);
