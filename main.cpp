@@ -230,8 +230,9 @@ bool* run = new bool(true);
 void id(blinfo* info) {
 	const char* description = "Author: hatf0/Metario/w[hat]#0518";
 	const char* name = "BLBrowser^2";
-	strcpy_s(info->description, sizeof(description), description);
-	strcpy_s(info->name, sizeof(name), name);
+
+	strncpy_s(info->description, description, strlen(description));
+	strncpy_s(info->name, name, strlen(name));
 	info->version = 1;
 }
 
@@ -348,6 +349,10 @@ private:
 	IMPLEMENT_REFCOUNTING(BrowserClient);
 };
 
+
+/*
+* are you happy now, clay hanson?
+*/
 
 bool bindToTexture(void* this_, int argc, const char* argv[]) {
 	return bindTexID();
