@@ -13,6 +13,16 @@ BL_glTexSubImage2DFn BL_glTexSubImage2D;
 BL_glGetStringFn BL_glGetString;
 BL_glGenerateMipmapFn BL_glGenerateMipmap;
 BL_wglGetProcAddressFn BL_wglGetProcAddress;
+BL_glGenBuffersFn BL_glGenBuffers;
+BL_glBindBufferFn BL_glBindBuffer;
+BL_glDeleteBuffersFn BL_glDeleteBuffers;
+BL_glBufferDataFn BL_glBufferData;
+BL_glBufferSubDataFn BL_glBufferSubData;
+BL_glGenBuffersARBFn BL_glGenBuffersARB;
+BL_glBindBufferARBFn BL_glBindBufferARB;
+BL_glDeleteBuffersARBFn BL_glDeleteBuffersARB;
+BL_glBufferDataARBFn BL_glBufferDataARB;
+BL_glBufferSubDataARBFn BL_glBufferSubDataARB;
 char* glVersion;
 unsigned int glMajor;
 
@@ -48,5 +58,15 @@ void initGL() {
 	BL_glTexSubImage2D = (BL_glTexSubImage2DFn)GetAnyGLFuncAddress("glTexSubImage2D");
 	BL_glGetString = (BL_glGetStringFn)GetAnyGLFuncAddress("glGetString"); // GL_VERSION
 	BL_glGenerateMipmap = (BL_glGenerateMipmapFn)GetAnyGLFuncAddress("glGenerateMipmaps");
+	BL_glGenBuffers = (BL_glGenBuffersFn)GetAnyGLFuncAddress("glGenBuffers");
+	BL_glBindBuffer = (BL_glBindBufferFn)GetAnyGLFuncAddress("glBindBuffer");
+	BL_glDeleteBuffers = (BL_glDeleteBuffersFn)GetAnyGLFuncAddress("glDeleteBuffers");
+	BL_glBufferData = (BL_glBufferDataFn)GetAnyGLFuncAddress("glBufferData");
+	BL_glBufferSubData = (BL_glBufferSubDataFn)GetAnyGLFuncAddress("glBufferSubData");
+	BL_glGenBuffersARB = (BL_glGenBuffersARBFn)GetAnyGLFuncAddress("glGenBuffersARB");
+	BL_glBindBufferARB = (BL_glBindBufferARBFn)GetAnyGLFuncAddress("glBindBufferARB");
+	BL_glDeleteBuffersARB = (BL_glDeleteBuffersARBFn)GetAnyGLFuncAddress("glDeleteBuffersARB");
+	BL_glBufferDataARB = (BL_glBufferDataARBFn)GetAnyGLFuncAddress("glBufferDataARB");
+	BL_glBufferSubDataARB = (BL_glBufferSubDataARBFn)GetAnyGLFuncAddress("glBufferSubDataARB");
 	glMajor = 0;
 }

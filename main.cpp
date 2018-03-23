@@ -55,15 +55,18 @@ static int texID = 0;
 
 static bool dirty = false;
 
+static int ww = 1024;
+static int hh = 768;
+
 MologieDetours::Detour<swapBuffersFn>* swapBuffers_detour;
 
-char *texBuffer_0 = new char[2048 * 2048 * 4];
+GLuint* texBuffer;
 
 int __fastcall swapBuffers_hook() {
 
 	if (texID != 0 && dirty) {
 		BL_glBindTexture(GL_TEXTURE_2D, texID);
-		BL_glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 2048, 2048, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texBuffer_0);
+		BL_glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, ww, hh, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texBuffer);
 		/*if (!BL_glGenerateMipmap) {
 			BL_glTexSubImage2D(GL_TEXTURE_2D, 1, 0, 0, 512, 512, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texBuffer_1);
 			BL_glTexSubImage2D(GL_TEXTURE_2D, 2, 0, 0, 256, 256, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texBuffer_2);
@@ -109,9 +112,30 @@ class BLBrowserDrawer : public CefRenderHandler {
 public:
 	BLBrowserDrawer(int w, int h) :
 		height(h), width(w)
-	{};
+	{
+		if (!BL_glGenBuffers) {
+			bloader_printf_error("Could not find genBuffers!");
+			if (!BL_glGenBuffersARB) {
+				bloader_printf_error("Could not find BL_genBuffersArb!");
+				texBuffer = (GLuint*)malloc(width * height * 4);
+			}
+			else {
+				BL_glGenBuffersARB(1, &*texBuffer);
+				BL_glBindBufferARB(GL_TEXTURE_BUFFER, *texBuffer);
+			}
+		}
+		else {
+		}
+	};
 
-	~BLBrowserDrawer() {};
+	~BLBrowserDrawer() {
+		if (BL_glDeleteBuffersARB) {
+			BL_glDeleteBuffersARB(1, &*texBuffer);
+		}
+		else {
+			delete texBuffer;
+		}
+	};
 
 	CefRefPtr< CefAccessibilityHandler > GetAccessibilityHandler() {
 		return nullptr;
@@ -145,8 +169,18 @@ public:
 
 	void OnPaint(CefRefPtr< CefBrowser > browser, CefRenderHandler::PaintElementType type, const CefRenderHandler::RectList& dirtyRects, const void* buffer, int w, int h) {
 		if (texID != 0) {
-			memcpy(texBuffer_0, buffer, width * height * 4);
+			if (BL_glBindBufferARB) {
+				BL_glBindBufferARB(GL_TEXTURE_BUFFER, *texBuffer);
+				BL_glBufferDataARB(GL_TEXTURE_BUFFER, width * height * 4, buffer, GL_DYNAMIC_DRAW);
+			}
+			else {
+				memcpy(texBuffer, buffer, width * height * 4);
+			}
+
 			dirty = true;
+			//texBuffer_0 = (char*)buffer;
+
+			//sdirty = true;
 			//bloader_printf("OnPaint");
 		}
 	}
@@ -186,7 +220,7 @@ void id(blinfo* info) {
 
 bool bindTexID() {
 	TextureObject* texture;
-	const char* string = "Add-Ons/Print_Screen_Cinema/prints/Cinema.png";
+	const char* string = "Add-Ons/Print_Screen_Cinema/prints/Fuck.png";
 	texID = 0;
 	for (texture = (TextureObject*)0x7868E0; texture; texture = texture->next) {
 		if (texture->texFileName != NULL && _stricmp(texture->texFileName, string) == 0) {
@@ -298,7 +332,7 @@ private:
 };
 
 
-bool fuckass(void* this_, int argc, const char* argv[]) {
+bool fuckass(void* this_, int argc, const char* argv[]) { //todo, make this function name better
 	if (brw.get() != nullptr) {
 		brw->GetMainFrame()->LoadURL(CefString(argv[1]));
 	}
@@ -325,7 +359,7 @@ void runml(bool* dowecontinue) {
 	if (!CefInitialize(args, settings, new BLBrowser(), nullptr))
 		bloader_printf_error("Failed to init CEF.");
 	else {
-		CefRefPtr<BLBrowserDrawer> renderHandler = new BLBrowserDrawer(1920, 1080);
+		CefRefPtr<BLBrowserDrawer> renderHandler = new BLBrowserDrawer(ww, hh);
 		CefBrowserSettings browser_settings;
 		CefWindowInfo window_info;
 		CefRefPtr<BrowserClient> browserClient;
@@ -335,6 +369,7 @@ void runml(bool* dowecontinue) {
 		brw = CefBrowserHost::CreateBrowserSync(window_info, browserClient.get(), "https://google.com", browser_settings, NULL);
 		while (true) {
 			if (*dowecontinue == false) {
+				brw->GetHost()->CloseBrowser(true);
 				CefShutdown();
 				bloader_printf("Unloaded");
 				return;
