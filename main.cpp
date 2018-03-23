@@ -379,6 +379,32 @@ void mouseMove(void* this_, int argc, const char* argv[]) {
 	evt->x = atoi(argv[1]);
 	evt->y = atoi(argv[2]);
 	brw->GetHost()->SendMouseMoveEvent(*evt, false);
+
+	delete evt;
+}
+
+void mouseClick(void* this_, int argc, const char* argv[]) {
+	CefMouseEvent* evt = new CefMouseEvent();
+	evt->x = atoi(argv[1]);
+	evt->y = atoi(argv[2]);
+	
+	int clickType = atoi(argv[3]);
+	brw->GetHost()->SendMouseClickEvent(*evt, (cef_mouse_button_type_t)clickType, false, 1);
+	brw->GetHost()->SendMouseClickEvent(*evt, (cef_mouse_button_type_t)clickType, true, 1);
+
+	delete evt;
+}
+
+void mouseWheel(void* this_, int argc, const char* argv[]) {
+	CefMouseEvent* evt = new CefMouseEvent();
+	evt->x = atoi(argv[1]);
+	evt->y = atoi(argv[2]);
+
+	int deltaX = atoi(argv[3]);
+	int deltaY = atoi(argv[4]);
+	brw->GetHost()->SendMouseWheelEvent(*evt, deltaX, deltaY);
+
+	delete evt;
 }
 
 void runml(bool* dowecontinue) { //Run the main loop here.
@@ -389,7 +415,7 @@ void runml(bool* dowecontinue) { //Run the main loop here.
 	settings.command_line_args_disabled = true;
 	settings.no_sandbox = true;
 	CefString(&settings.browser_subprocess_path).FromASCII("blbrowser_subproc.exe");
-	CefString(&settings.user_agent).FromASCII("Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chromium/65.0.3325.146 Safari/537.36 Blockland/r1986 (Torque Game Engine/1.3)");
+	CefString(&settings.user_agent).FromASCII("Mozilla/5.0 (Windows NT 6.2; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.146 Safari/537.36 Blockland/r1986 (Torque Game Engine/1.3)");
 	settings.windowless_rendering_enabled = true;
 	if (!CefInitialize(args, settings, new BLBrowser(), nullptr))
 		bloader_printf_error("Failed to init CEF.");
@@ -401,7 +427,7 @@ void runml(bool* dowecontinue) { //Run the main loop here.
 		browserClient = new BrowserClient(renderHandler);
 		browser_settings.windowless_frame_rate = 60;
 		window_info.SetAsWindowless(0);
-		brw = CefBrowserHost::CreateBrowserSync(window_info, browserClient.get(), "https://google.com", browser_settings, NULL);
+		brw = CefBrowserHost::CreateBrowserSync(window_info, browserClient.get(), "", browser_settings, NULL);
 		while (true) {
 			if (*dowecontinue == false) {
 				brw->GetHost()->CloseBrowser(true);
@@ -422,9 +448,13 @@ extern "C" {
 		us = module;
 		bloader_consolefunction_bool(us, "", "CEF_bindTex", bindToTexture, "() - Bind to the texture representing a Cinema screen.", 1, 1);
 		bloader_consolefunction_void(us, "", "CEF_goToURL", visitURL, "(string url) - Visit a URL", 2, 2);
+		bloader_consolefunction_void(us, "", "clientCmdCEF_goToURL", visitURL, "(string url) - Visit a URL", 2, 2);
 		bloader_consolefunction_void(us, "", "CEF_executeJS", executeJS, "(string code) - Execute JavaScript on the current window.", 2, 2);
 		bloader_consolefunction_void(us, "", "CEF_resizeWindow", resizeWindow, "(int width, int height) - Resize the CEF window, reallocating the texture buffer.", 3, 3);
+		bloader_consolefunction_void(us, "", "CEF_mouseMove", mouseMove, "(int x, int y) - Move the mouse to this position.", 3, 3);
 
+		bloader_consolefunction_void(us, "", "CEF_mouseClick", mouseClick, "(int x, int y, int clickType) - Send a click event on the specified coordinates.", 4, 4);
+		bloader_consolefunction_void(us, "", "CEF_mouseWheel", mouseWheel, "(int x, int y, int deltaX, int deltaY) - Send a mousewheel event at the coords.", 5, 5);
 
 		initGL();
 		swapBuffers_detour = new MologieDetours::Detour<swapBuffersFn>((swapBuffersFn)0x4237D0, (swapBuffersFn)swapBuffers_hook);
@@ -445,6 +475,7 @@ extern "C" {
 			blb.join();
 		}
 		delete run;
+		free(texBuffer);
 	}
 
 	int WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved)
