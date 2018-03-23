@@ -63,7 +63,7 @@ MologieDetours::Detour<swapBuffersFn>* swapBuffers_detour; //The detour so we ca
 GLuint* texBuffer;
 
 int __fastcall swapBuffers_hook() {
-
+	int ret = swapBuffers_detour->GetOriginalFunction()();
 	if (texID != 0 && dirty) {
 		BL_glBindTexture(GL_TEXTURE_2D, texID);
 		BL_glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, global_ww, global_hh, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texBuffer);
@@ -80,7 +80,6 @@ int __fastcall swapBuffers_hook() {
 		BL_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 		dirty = false;
 	}
-		int ret = swapBuffers_detour->GetOriginalFunction()();
 	return ret;
 }
 
@@ -104,6 +103,7 @@ public:
 			if (!BL_glGenBuffersARB) {
 				bloader_printf_error("Could not find BL_genBuffersArb!");
 				texBuffer = (GLuint*)malloc(2048 * 2048 * 4);
+				memset((void*)texBuffer, 0, 2048 * 2048 * 4);
 			}
 			else {
 				BL_glGenBuffersARB(1, &*texBuffer);
@@ -160,7 +160,7 @@ public:
 				BL_glBufferDataARB(GL_TEXTURE_BUFFER, width * height * 4, buffer, GL_DYNAMIC_DRAW);
 			}
 			else {
-				memcpy(texBuffer, buffer, width * height * 4);
+				memcpy(texBuffer, buffer, w * h * 4);
 			}
 
 			dirty = true;
@@ -193,7 +193,7 @@ public:
 
 	void UpdateResolution(int hh, int ww) {
 
-		if (hh * ww * 4 > 16777216) {
+		if (hh * ww * 4 > 16777215) {
 			bloader_printf_error("That's too damn big.");
 			return;
 		}
@@ -407,6 +407,15 @@ void mouseWheel(void* this_, int argc, const char* argv[]) {
 	delete evt;
 }
 
+void keyboardEvent(void* this_, int argc, const char* argv[]) {
+	CefKeyEvent* evt = new CefKeyEvent();
+	evt->character = argv[1][0];
+	evt->modifiers = atoi(argv[2]);
+	brw->GetHost()->SendKeyEvent(*evt);
+
+	delete evt;
+}
+
 void runml(bool* dowecontinue) { //Run the main loop here.
 	CefMainArgs args;
 
@@ -425,9 +434,9 @@ void runml(bool* dowecontinue) { //Run the main loop here.
 		CefWindowInfo window_info;
 		CefRefPtr<BrowserClient> browserClient;
 		browserClient = new BrowserClient(renderHandler);
-		browser_settings.windowless_frame_rate = 60;
+		browser_settings.windowless_frame_rate = 30;
 		window_info.SetAsWindowless(0);
-		brw = CefBrowserHost::CreateBrowserSync(window_info, browserClient.get(), "", browser_settings, NULL);
+		brw = CefBrowserHost::CreateBrowserSync(window_info, browserClient.get(), "https://google.com", browser_settings, NULL);
 		while (true) {
 			if (*dowecontinue == false) {
 				brw->GetHost()->CloseBrowser(true);
@@ -455,6 +464,7 @@ extern "C" {
 
 		bloader_consolefunction_void(us, "", "CEF_mouseClick", mouseClick, "(int x, int y, int clickType) - Send a click event on the specified coordinates.", 4, 4);
 		bloader_consolefunction_void(us, "", "CEF_mouseWheel", mouseWheel, "(int x, int y, int deltaX, int deltaY) - Send a mousewheel event at the coords.", 5, 5);
+		bloader_consolefunction_void(us, "", "CEF_keyboardEvent", keyboardEvent, "(char key, int modifiers) - Send a keyboard event to CEF.", 3, 3);
 
 		initGL();
 		swapBuffers_detour = new MologieDetours::Detour<swapBuffersFn>((swapBuffersFn)0x4237D0, (swapBuffersFn)swapBuffers_hook);
@@ -467,7 +477,7 @@ extern "C" {
 	void blibrary_info(blinfo* info) {
 		id(info);
 	}
-
+	
 	void blibrary_deinit() {
 		bloader_printf("We should detach here");
 		if (*run) {
