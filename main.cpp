@@ -63,7 +63,6 @@ MologieDetours::Detour<swapBuffersFn>* swapBuffers_detour; //The detour so we ca
 GLuint* texBuffer;
 
 int __fastcall swapBuffers_hook() {
-	int ret = swapBuffers_detour->GetOriginalFunction()();
 	if (texID != 0 && dirty) {
 		BL_glBindTexture(GL_TEXTURE_2D, texID);
 		BL_glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, global_ww, global_hh, GL_BGRA_EXT, GL_UNSIGNED_BYTE, texBuffer);
@@ -80,6 +79,7 @@ int __fastcall swapBuffers_hook() {
 		BL_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 		dirty = false;
 	}
+	int ret = swapBuffers_detour->GetOriginalFunction()();
 	return ret;
 }
 
